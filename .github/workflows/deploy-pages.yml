@@ -1,0 +1,47 @@
+# GitHub Pages serves files from git as stored. LFS-tracked files stay as tiny pointer
+# blobs in the repo, so the real .pck never reaches Pages unless we deploy from a
+# checkout that runs Git LFS (this workflow).
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with LFS files expanded)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Prepare site directory
+        run: |
+          mkdir -p _site
+          rsync -a --exclude='.git' --exclude='.github' --exclude='_site' ./ _site/
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
